@@ -1,20 +1,13 @@
 import { useEffect, useReducer, useState } from 'react'
-import './App.css'
+import styles from './App.module.css'
+import { Board } from './components/Board'
+import { StatsBar } from './components/StatsBar'
 import {
   MISMATCH_DELAY_MS,
   createInitialState,
   createShuffledDeck,
   gameReducer,
 } from './gameReducer'
-
-const ICONS = ['🍎', '🍌', '🍇', '🍒', '🍋', '🍉', '🍓', '🍑']
-
-function formatTime(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-}
 
 function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, () => createInitialState())
@@ -32,8 +25,7 @@ function App() {
     return () => clearTimeout(timeout)
   }, [state.pendingIds])
 
-  const elapsedMs =
-    state.startedAt === null ? 0 : (state.endedAt ?? now) - state.startedAt
+  const elapsedMs = state.startedAt === null ? 0 : (state.endedAt ?? now) - state.startedAt
 
   function handleFlip(cardId: number) {
     dispatch({ type: 'FLIP_CARD', cardId, timestamp: Date.now() })
@@ -44,36 +36,15 @@ function App() {
   }
 
   return (
-    <main className="game">
+    <main className={styles.game}>
       <h1>MatchLoop</h1>
-
-      <div className="stats">
-        <span>Moves: {state.moves}</span>
-        <span>Time: {formatTime(elapsedMs)}</span>
-        <button type="button" onClick={handleNewGame}>
-          New Game
-        </button>
-      </div>
-
-      {state.status === 'won' && <p className="won-banner">You won in {state.moves} moves!</p>}
-
-      <div className="board">
-        {state.cards.map((card) => {
-          const revealed = card.faceUp || card.matched
-          return (
-            <button
-              key={card.id}
-              type="button"
-              className={`card${revealed ? ' revealed' : ''}${card.matched ? ' matched' : ''}`}
-              onClick={() => handleFlip(card.id)}
-              disabled={card.matched}
-              aria-label={revealed ? `Card ${ICONS[card.pairId]}` : 'Hidden card'}
-            >
-              {revealed ? ICONS[card.pairId] : '?'}
-            </button>
-          )
-        })}
-      </div>
+      <StatsBar moves={state.moves} elapsedMs={elapsedMs} onNewGame={handleNewGame} />
+      {state.status === 'won' && (
+        <p className={styles.wonBanner} data-testid="win-banner">
+          You won in {state.moves} moves!
+        </p>
+      )}
+      <Board cards={state.cards} onFlip={handleFlip} />
     </main>
   )
 }

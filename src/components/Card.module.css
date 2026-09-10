@@ -1,0 +1,23 @@
+.card {
+  aspect-ratio: 1;
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid #999;
+  background: #3949ab;
+  color: transparent;
+  cursor: pointer;
+}
+
+.revealed {
+  background: #fff;
+  color: inherit;
+}
+
+.matched {
+  background: #c8e6c9;
+  border-color: #2e7d32;
+  cursor: default;
+}
