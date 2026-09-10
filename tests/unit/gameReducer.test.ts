@@ -49,6 +49,22 @@ describe('createShuffledDeck', () => {
 })
 
 describe('gameReducer', () => {
+  it('replaces the entire state on SEED_BOARD', () => {
+    const state = buildState([0, 0, 1, 1])
+    const seeded: GameState = {
+      cards: state.cards.map((c) => ({ ...c, faceUp: true })),
+      pendingIds: [],
+      moves: 3,
+      status: 'playing',
+      startedAt: 500,
+      endedAt: null,
+    }
+
+    const next = gameReducer(state, { type: 'SEED_BOARD', state: seeded })
+
+    expect(next).toBe(seeded)
+  })
+
   it('returns the same state for an unknown action', () => {
     const state = buildState([0, 0, 1, 1])
     // @ts-expect-error intentionally invalid action to exercise the default branch

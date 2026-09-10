@@ -9,8 +9,9 @@ export default defineConfig({
     include: ['tests/unit/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.ts'],
-      exclude: ['src/main.tsx'],
+      // testFixtures.ts is dev/test-only wiring for the Playwright harness,
+      // exercised end-to-end rather than via unit tests.
+      include: ['src/gameReducer.ts'],
     },
   },
 })
