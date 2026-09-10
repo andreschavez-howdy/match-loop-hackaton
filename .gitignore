@@ -19,6 +19,9 @@ dist-ssr
 /blob-report/
 /playwright/.cache/
 
+# Coverage
+/coverage/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
