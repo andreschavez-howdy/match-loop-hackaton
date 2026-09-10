@@ -1,121 +1,80 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { useEffect, useReducer, useState } from 'react'
 import './App.css'
+import {
+  MISMATCH_DELAY_MS,
+  createInitialState,
+  createShuffledDeck,
+  gameReducer,
+} from './gameReducer'
+
+const ICONS = ['🍎', '🍌', '🍇', '🍒', '🍋', '🍉', '🍓', '🍑']
+
+function formatTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [state, dispatch] = useReducer(gameReducer, undefined, () => createInitialState())
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (state.status !== 'playing') return
+    const interval = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(interval)
+  }, [state.status])
+
+  useEffect(() => {
+    if (state.pendingIds.length !== 2) return
+    const timeout = setTimeout(() => dispatch({ type: 'RESOLVE_MISMATCH' }), MISMATCH_DELAY_MS)
+    return () => clearTimeout(timeout)
+  }, [state.pendingIds])
+
+  const elapsedMs =
+    state.startedAt === null ? 0 : (state.endedAt ?? now) - state.startedAt
+
+  function handleFlip(cardId: number) {
+    dispatch({ type: 'FLIP_CARD', cardId, timestamp: Date.now() })
+  }
+
+  function handleNewGame() {
+    dispatch({ type: 'NEW_GAME', cards: createShuffledDeck() })
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
+    <main className="game">
+      <h1>MatchLoop</h1>
+
+      <div className="stats">
+        <span>Moves: {state.moves}</span>
+        <span>Time: {formatTime(elapsedMs)}</span>
+        <button type="button" onClick={handleNewGame}>
+          New Game
         </button>
-      </section>
+      </div>
 
-      <div className="ticks"></div>
+      {state.status === 'won' && <p className="won-banner">You won in {state.moves} moves!</p>}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <div className="board">
+        {state.cards.map((card) => {
+          const revealed = card.faceUp || card.matched
+          return (
+            <button
+              key={card.id}
+              type="button"
+              className={`card${revealed ? ' revealed' : ''}${card.matched ? ' matched' : ''}`}
+              onClick={() => handleFlip(card.id)}
+              disabled={card.matched}
+              aria-label={revealed ? `Card ${ICONS[card.pairId]}` : 'Hidden card'}
+            >
+              {revealed ? ICONS[card.pairId] : '?'}
+            </button>
+          )
+        })}
+      </div>
+    </main>
   )
 }
 
