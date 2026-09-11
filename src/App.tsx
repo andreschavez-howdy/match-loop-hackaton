@@ -25,6 +25,21 @@ function App() {
     return () => clearTimeout(timeout)
   }, [state.pendingIds])
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    let disposed = false
+    import('./testFixtures').then(({ buildFixtureState }) => {
+      if (disposed) return
+      window.__seedBoard = (fixture) => {
+        dispatch({ type: 'SEED_BOARD', state: buildFixtureState(fixture) })
+      }
+    })
+    return () => {
+      disposed = true
+      window.__seedBoard = undefined
+    }
+  }, [])
+
   const elapsedMs = state.startedAt === null ? 0 : (state.endedAt ?? now) - state.startedAt
 
   function handleFlip(cardId: number) {

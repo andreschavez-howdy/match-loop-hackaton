@@ -24,6 +24,7 @@ export type GameAction =
   | { type: 'FLIP_CARD'; cardId: number; timestamp: number }
   | { type: 'RESOLVE_MISMATCH' }
   | { type: 'NEW_GAME'; cards: Card[] }
+  | { type: 'SEED_BOARD'; state: GameState }
 
 export function createShuffledDeck(random: () => number = Math.random): Card[] {
   const pairIds = Array.from({ length: PAIR_COUNT }, (_, i) => i)
@@ -107,6 +108,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return resolveMismatch(state)
     case 'NEW_GAME':
       return createInitialState(action.cards)
+    case 'SEED_BOARD':
+      return action.state
     default:
       return state
   }
