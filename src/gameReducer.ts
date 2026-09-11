@@ -49,12 +49,12 @@ export function createInitialState(cards: Card[] = createShuffledDeck()): GameSt
 
 function flipCard(state: GameState, cardId: number, timestamp: number): GameState {
   if (state.status === 'won') return state
+  if (state.pendingIds.length === 2) return state
 
   const card = state.cards.find((c) => c.id === cardId)
   if (!card) return state
   if (card.matched) return state
   if (card.faceUp) return state
-  if (state.pendingIds.length === 2) return state
 
   const cards = state.cards.map((c) => (c.id === cardId ? { ...c, faceUp: true } : c))
   const startedAt = state.startedAt ?? timestamp

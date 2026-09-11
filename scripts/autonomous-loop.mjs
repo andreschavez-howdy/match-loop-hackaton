@@ -7,7 +7,7 @@
 // iteration cap is hit -- no human prompt inside the loop.
 
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -48,18 +48,29 @@ function runHarness() {
   }
 }
 
-// Snapshot of every path with uncommitted changes (tracked or untracked), so
-// we can tell exactly which files the agent touched during its turn, as
-// opposed to changes that were already sitting in the working tree before it
-// ran (e.g. from other in-progress work).
 function gitStatusPaths() {
   const result = spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' })
-  return new Set(
-    result.stdout
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => line.slice(3).trim()),
-  )
+  return result.stdout
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.slice(3).trim())
+}
+
+// Content snapshot of every path with uncommitted changes (tracked or
+// untracked), so we can tell exactly which files the agent touched during its
+// turn -- including further edits to a file that was already dirty before it
+// ran (e.g. the deliberately injected demo bug) -- rather than only noticing
+// paths that went from clean to dirty.
+function snapshotWorkingTree() {
+  const snapshot = new Map()
+  for (const path of gitStatusPaths()) {
+    try {
+      snapshot.set(path, readFileSync(join(ROOT, path), 'utf8'))
+    } catch {
+      snapshot.set(path, null)
+    }
+  }
+  return snapshot
 }
 
 function revertPath(path) {
@@ -80,8 +91,10 @@ function revertPath(path) {
 // make the harness pass.
 const ALLOWED_PREFIXES = ['src/']
 
-function enforceAllowedChanges(pathsBeforeAgentRan) {
-  const changed = [...gitStatusPaths()].filter((path) => !pathsBeforeAgentRan.has(path))
+function enforceAllowedChanges(snapshotBeforeAgentRan) {
+  const after = snapshotWorkingTree()
+  const allPaths = new Set([...snapshotBeforeAgentRan.keys(), ...after.keys()])
+  const changed = [...allPaths].filter((path) => snapshotBeforeAgentRan.get(path) !== after.get(path))
   const forbidden = changed.filter((path) => !ALLOWED_PREFIXES.some((p) => path.startsWith(p)))
   for (const path of forbidden) {
     console.log(`  guardrail: reverting out-of-scope change to ${path}`)
@@ -163,9 +176,9 @@ async function main() {
   for (let i = 1; i <= MAX_ITERATIONS && !current.pass; i++) {
     console.log(`\n--- Iteration ${i}/${MAX_ITERATIONS}: harness failing, invoking implementation agent ---`)
     const failureOutput = current.output
-    const pathsBeforeAgentRan = gitStatusPaths()
+    const snapshotBeforeAgentRan = snapshotWorkingTree()
     const agent = runImplementationAgent(failureOutput)
-    const { changed, forbidden } = enforceAllowedChanges(pathsBeforeAgentRan)
+    const { changed, forbidden } = enforceAllowedChanges(snapshotBeforeAgentRan)
     console.log(`  agent summary: ${agent.summary}`)
     if (agent.costUsd != null) console.log(`  cost: $${agent.costUsd.toFixed(4)}`)
 
