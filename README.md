@@ -7,9 +7,9 @@ edge case passes, with no human prompt inside the loop.
 
 Built for Howdy's Dev Day 2026 Agentic Software Engineering Hackathon. See
 [`docs/SPEC.md`](docs/SPEC.md) for the full product/engineering spec,
-[`SYSTEM.md`](SYSTEM.md) for how the agents and harness fit together, and
-[`AI-DEV-LOG.md`](AI-DEV-LOG.md) for the build narrative and real evidence of the
-autonomous loop running.
+[`docs/SYSTEM.md`](docs/SYSTEM.md) for how the agents and harness fit together, and
+[`docs/AI-DEV-LOG.md`](docs/AI-DEV-LOG.md) for the build narrative and real evidence of
+the autonomous loop running.
 
 ## Quick start
 
@@ -38,7 +38,7 @@ Open the printed local URL (defaults to http://localhost:5173/) and play.
 
 ## Testing
 
-Two layers, both described in [`SYSTEM.md`](SYSTEM.md):
+Two layers, both described in [`docs/SYSTEM.md`](docs/SYSTEM.md):
 
 - **Unit (Vitest)** — `src/gameReducer.ts` is a pure, timestamp-driven reducer with no
   DOM or randomness of its own, so it's tested directly with `npm test`.
@@ -80,5 +80,8 @@ tests/
 scripts/
   autonomous-loop.mjs    # the orchestrator
   demo/inject-bug.mjs    # deliberately breaks one edge case, for demoing the loop
-docs/SPEC.md             # product & engineering spec
+docs/
+  SPEC.md                # product & engineering spec
+  SYSTEM.md              # agent map, harness, loop, context/parallelization evidence
+  AI-DEV-LOG.md          # build narrative, iterations, and corrections
 ```
