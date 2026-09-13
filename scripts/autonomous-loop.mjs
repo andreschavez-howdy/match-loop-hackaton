@@ -21,21 +21,30 @@ function truncate(text, max = MAX_OUTPUT_CHARS) {
   return `${text.slice(0, max)}\n... (truncated, ${text.length - max} more chars)`
 }
 
-function runCommand(command, args) {
+const HARNESS_TIMEOUT_MS = 5 * 60 * 1000
+const AGENT_TIMEOUT_MS = 10 * 60 * 1000
+
+// A hung subprocess (a flaky test waiting on a selector forever, a stalled
+// network call) would otherwise block the loop indefinitely despite the
+// "iterations < 5 or escalate" guarantee -- a timeout is treated as a failed
+// run rather than left to hang.
+function runCommand(command, args, timeoutMs) {
   const result = spawnSync(command, args, {
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 1024 * 1024 * 50,
+    timeout: timeoutMs,
   })
-  return {
-    pass: result.status === 0,
-    output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
-  }
+  const timedOut = result.signal != null
+  const output = `${result.stdout ?? ''}${result.stderr ?? ''}${
+    timedOut ? `\n[orchestrator] "${command} ${args.join(' ')}" timed out after ${timeoutMs}ms and was killed (${result.signal}).` : ''
+  }`
+  return { pass: !timedOut && result.status === 0, output }
 }
 
 function runHarness() {
-  const unit = runCommand('npx', ['vitest', 'run'])
-  const e2e = runCommand('npx', ['playwright', 'test'])
+  const unit = runCommand('npx', ['vitest', 'run'], HARNESS_TIMEOUT_MS)
+  const e2e = runCommand('npx', ['playwright', 'test'], HARNESS_TIMEOUT_MS)
   return {
     pass: unit.pass && e2e.pass,
     output: [
@@ -48,40 +57,63 @@ function runHarness() {
   }
 }
 
+// Parses `git status --porcelain` lines into paths, including both sides of a
+// rename ("R  old -> new"), which a naive `line.slice(3)` would otherwise
+// return as one bogus "old -> new" string.
 function gitStatusPaths() {
   const result = spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' })
-  return result.stdout
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => line.slice(3).trim())
+  const paths = []
+  for (const line of result.stdout.split('\n')) {
+    if (!line) continue
+    const rest = line.slice(3)
+    const arrow = rest.indexOf(' -> ')
+    if (arrow === -1) {
+      paths.push(rest.trim())
+    } else {
+      paths.push(rest.slice(0, arrow).trim(), rest.slice(arrow + 4).trim())
+    }
+  }
+  return paths
+}
+
+// `git status --porcelain` never lists gitignored paths, so a write to .env
+// (or anything else ignored) would otherwise be completely invisible to the
+// snapshot below -- these are checked unconditionally regardless of git's view.
+const SENSITIVE_PATHS = ['.env']
+
+function readFileOrNull(path) {
+  try {
+    return readFileSync(join(ROOT, path), 'utf8')
+  } catch {
+    return null
+  }
 }
 
 // Content snapshot of every path with uncommitted changes (tracked or
-// untracked), so we can tell exactly which files the agent touched during its
-// turn -- including further edits to a file that was already dirty before it
-// ran (e.g. the deliberately injected demo bug) -- rather than only noticing
-// paths that went from clean to dirty.
+// untracked) plus SENSITIVE_PATHS, so we can tell exactly which files the
+// agent touched during its turn -- including further edits to a file that was
+// already dirty before it ran (e.g. the deliberately injected demo bug), and
+// including gitignored paths git status would otherwise hide entirely.
 function snapshotWorkingTree() {
   const snapshot = new Map()
   for (const path of gitStatusPaths()) {
-    try {
-      snapshot.set(path, readFileSync(join(ROOT, path), 'utf8'))
-    } catch {
-      snapshot.set(path, null)
-    }
+    snapshot.set(path, readFileOrNull(path))
+  }
+  for (const path of SENSITIVE_PATHS) {
+    if (!snapshot.has(path)) snapshot.set(path, readFileOrNull(path))
   }
   return snapshot
 }
 
-function revertPath(path) {
-  const status = spawnSync('git', ['status', '--porcelain', '--', path], {
-    cwd: ROOT,
-    encoding: 'utf8',
-  }).stdout
-  if (status.startsWith('??')) {
-    rmSync(join(ROOT, path), { force: true })
+// Restores a path to its exact pre-agent content (or deletes it, if it didn't
+// exist before) directly via the filesystem rather than `git checkout`, so
+// this works uniformly for tracked, untracked, and gitignored paths alike.
+function revertPath(path, previousContent) {
+  const fullPath = join(ROOT, path)
+  if (previousContent === null) {
+    rmSync(fullPath, { force: true })
   } else {
-    spawnSync('git', ['checkout', '--', path], { cwd: ROOT })
+    writeFileSync(fullPath, previousContent)
   }
 }
 
@@ -98,7 +130,7 @@ function enforceAllowedChanges(snapshotBeforeAgentRan) {
   const forbidden = changed.filter((path) => !ALLOWED_PREFIXES.some((p) => path.startsWith(p)))
   for (const path of forbidden) {
     console.log(`  guardrail: reverting out-of-scope change to ${path}`)
-    revertPath(path)
+    revertPath(path, snapshotBeforeAgentRan.get(path) ?? null)
   }
   return { changed, forbidden }
 }
@@ -142,8 +174,16 @@ function runImplementationAgent(failureOutput) {
       '--disallowedTools',
       'Bash',
     ],
-    { cwd: ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024 * 50 },
+    { cwd: ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024 * 50, timeout: AGENT_TIMEOUT_MS },
   )
+
+  if (result.signal != null) {
+    return {
+      ok: false,
+      summary: `claude CLI timed out after ${AGENT_TIMEOUT_MS}ms and was killed (${result.signal}).`,
+      costUsd: null,
+    }
+  }
 
   if (result.status !== 0) {
     return {

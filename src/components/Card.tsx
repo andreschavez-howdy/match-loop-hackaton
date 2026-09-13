@@ -1,7 +1,11 @@
-import type { Card as CardModel } from '../gameReducer'
+import { PAIR_COUNT, type Card as CardModel } from '../gameReducer'
 import styles from './Card.module.css'
 
 const ICONS = ['🍎', '🍌', '🍇', '🍒', '🍋', '🍉', '🍓', '🍑']
+
+if (ICONS.length < PAIR_COUNT) {
+  throw new Error(`ICONS needs at least PAIR_COUNT (${PAIR_COUNT}) entries, has ${ICONS.length}`)
+}
 
 interface CardProps {
   card: CardModel
