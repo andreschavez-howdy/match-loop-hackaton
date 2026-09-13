@@ -6,6 +6,7 @@
   background: transparent;
   cursor: pointer;
   perspective: 1000px;
+  position: relative;
 }
 
 .cardInner {
@@ -65,19 +66,23 @@
    partway through it (backface-visibility hides it until the card has
    rotated past 90deg) -- so the green "matched" color starts after a delay,
    once the icon itself is actually visible, instead of being baked in as a
-   static rule the instant React applies the .matched class (which made an
-   already-revealed card snap straight to green with no transition at all,
-   and a freshly-flipping card get "covered" by green mid-rotation before its
-   icon had been seen). animation-fill-mode: forwards keeps the end color. */
+   static rule the instant React applies the .matched class.
+   animation-fill-mode: forwards keeps the end color. */
 .matched .faceUp {
   animation: matchColor 0.35s ease 0.35s forwards;
 }
 
-.matched .cardInner {
+/* Celebration effects (flash + ring) live on the outer .card button, never
+   on .cardInner -- that element already owns the 3D flip transition, and
+   layering a second, concurrent animation onto the same preserve-3d/
+   backface-visibility element caused a visible flicker back to the
+   face-down side mid-rotation. Putting them on a plain 2D sibling element
+   avoids any interaction with the flip entirely. */
+.matched {
   animation: matchFlash 0.5s ease 0.35s;
 }
 
-.matched .cardInner::after {
+.matched::after {
   content: '';
   position: absolute;
   inset: -4px;
@@ -124,8 +129,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .cardInner,
-  .cardInner::after,
-  .faceUp {
+  .faceUp,
+  .matched,
+  .matched::after {
     animation: none;
     transition: none;
   }
