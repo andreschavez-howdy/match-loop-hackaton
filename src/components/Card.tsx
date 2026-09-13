@@ -27,7 +27,10 @@ export function Card({ card, onFlip }: CardProps) {
       data-face-up={card.faceUp}
       aria-label={revealed ? `Card ${ICONS[card.pairId]}` : 'Hidden card'}
     >
-      {revealed ? ICONS[card.pairId] : '?'}
+      <span className={styles.cardInner}>
+        <span className={`${styles.face} ${styles.faceDown}`}>?</span>
+        <span className={`${styles.face} ${styles.faceUp}`}>{ICONS[card.pairId]}</span>
+      </span>
     </button>
   )
 }

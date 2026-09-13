@@ -1,49 +1,85 @@
 .card {
   aspect-ratio: 1;
-  font-size: 1.8rem;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  perspective: 1000px;
+  position: relative;
+}
+
+.cardInner {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.revealed .cardInner {
+  transform: rotateY(180deg);
+}
+
+/* Subtle hover/focus affordance for face-down, unmatched cards only. Its own
+   faster transition keeps the hover response snappy, independent of the
+   slower, bouncier flip transition above. */
+.card:not(.revealed):hover .cardInner {
+  transform: translateY(-2px) scale(1.04);
+  transition: transform 0.15s ease;
+}
+
+.card:not(.revealed):focus-visible .cardInner {
+  outline: 3px solid #7986cb;
+  outline-offset: 2px;
+}
+
+.face {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
+  font-size: 1.8rem;
+  border-radius: inherit;
   border: 1px solid #999;
+  backface-visibility: hidden;
+}
+
+.faceDown {
   background: #3949ab;
   color: transparent;
-  cursor: pointer;
-  position: relative;
-  transform-style: preserve-3d;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
 }
 
-/* Subtle hover/focus affordance for face-down, unmatched cards only. */
-.card:not(.revealed):hover {
-  transform: translateY(-2px) scale(1.04);
+.card:not(.revealed):hover .faceDown {
+  border-color: #5c6bc0;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
-  border-color: #5c6bc0;
 }
 
-.card:not(.revealed):focus-visible {
-  outline: 3px solid #7986cb;
-  outline-offset: 2px;
-  border-color: #5c6bc0;
-}
-
-.revealed {
+.faceUp {
   background: #fff;
-  color: inherit;
-  animation: flipReveal 0.45s ease;
+  transform: rotateY(180deg);
 }
 
+/* The flip transition takes 0.5s, and the face-up side only becomes visible
+   partway through it (backface-visibility hides it until the card has
+   rotated past 90deg) -- so the green "matched" color starts after a delay,
+   once the icon itself is actually visible, instead of being baked in as a
+   static rule the instant React applies the .matched class.
+   animation-fill-mode: forwards keeps the end color. */
+.matched .faceUp {
+  animation: matchColor 0.35s ease 0.35s forwards;
+}
+
+/* Celebration effects (flash + ring) live on the outer .card button, never
+   on .cardInner -- that element already owns the 3D flip transition, and
+   layering a second, concurrent animation onto the same preserve-3d/
+   backface-visibility element caused a visible flicker back to the
+   face-down side mid-rotation. Putting them on a plain 2D sibling element
+   avoids any interaction with the flip entirely. */
 .matched {
-  background: #c8e6c9;
-  border-color: #2e7d32;
-  cursor: default;
-  /* Replay the flip alongside a short celebratory flash when a pair matches. */
-  animation:
-    flipReveal 0.45s ease,
-    matchFlash 0.5s ease;
+  animation: matchFlash 0.5s ease 0.35s;
 }
 
 .matched::after {
@@ -54,18 +90,17 @@
   border: 2px solid #66bb6a;
   opacity: 0;
   pointer-events: none;
-  animation: matchRing 0.5s ease-out;
+  animation: matchRing 0.5s ease-out 0.35s;
 }
 
-@keyframes flipReveal {
-  0% {
-    transform: rotateY(0deg);
+@keyframes matchColor {
+  from {
+    background: #fff;
+    border-color: #999;
   }
-  50% {
-    transform: rotateY(90deg);
-  }
-  100% {
-    transform: rotateY(0deg);
+  to {
+    background: #c8e6c9;
+    border-color: #2e7d32;
   }
 }
 
@@ -93,11 +128,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card,
-  .revealed,
+  .cardInner,
+  .faceUp,
   .matched,
   .matched::after {
     animation: none;
     transition: none;
+  }
+
+  .matched .faceUp {
+    background: #c8e6c9;
+    border-color: #2e7d32;
   }
 }

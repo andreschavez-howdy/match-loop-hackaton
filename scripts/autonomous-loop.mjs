@@ -42,9 +42,16 @@ function runCommand(command, args, timeoutMs) {
   return { pass: !timedOut && result.status === 0, output }
 }
 
+// LOOP_HEADED=1 pops up a real, visible browser window for the e2e portion
+// of the harness instead of running Chromium invisibly -- useful for
+// recording/watching the loop, since the headless harness run otherwise has
+// nothing on screen to point a camera at.
+const HEADED = process.env.LOOP_HEADED === '1'
+
 function runHarness() {
   const unit = runCommand('npx', ['vitest', 'run'], HARNESS_TIMEOUT_MS)
-  const e2e = runCommand('npx', ['playwright', 'test'], HARNESS_TIMEOUT_MS)
+  const e2eArgs = HEADED ? ['playwright', 'test', '--headed', '--workers=1'] : ['playwright', 'test']
+  const e2e = runCommand('npx', e2eArgs, HARNESS_TIMEOUT_MS)
   return {
     pass: unit.pass && e2e.pass,
     output: [
