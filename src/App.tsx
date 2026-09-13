@@ -2,6 +2,7 @@ import { useEffect, useReducer, useState } from 'react'
 import styles from './App.module.css'
 import { Board } from './components/Board'
 import { StatsBar } from './components/StatsBar'
+import { WinOverlay } from './components/WinOverlay'
 import {
   MISMATCH_DELAY_MS,
   createInitialState,
@@ -54,12 +55,10 @@ function App() {
     <main className={styles.game}>
       <h1>MatchLoop</h1>
       <StatsBar moves={state.moves} elapsedMs={elapsedMs} onNewGame={handleNewGame} />
-      {state.status === 'won' && (
-        <p className={styles.wonBanner} data-testid="win-banner">
-          You won in {state.moves} moves!
-        </p>
-      )}
       <Board cards={state.cards} onFlip={handleFlip} />
+      {state.status === 'won' && (
+        <WinOverlay moves={state.moves} elapsedMs={elapsedMs} onNewGame={handleNewGame} />
+      )}
     </main>
   )
 }
