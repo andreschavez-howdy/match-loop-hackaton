@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "loop": "node scripts/autonomous-loop.mjs",
+    "loop:watch": "LOOP_HEADED=1 node scripts/autonomous-loop.mjs",
     "demo:inject-bug": "node scripts/demo/inject-bug.mjs"
   },
   "dependencies": {
