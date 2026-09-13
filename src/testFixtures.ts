@@ -33,14 +33,19 @@ export function buildFixtureState(name: FixtureName): GameState {
 
     case 'pending-mismatch': {
       // Cards 0 and 2 belong to different pairs (0 and 1): flipped face up,
-      // mismatched, and awaiting the RESOLVE_MISMATCH timeout.
+      // mismatched, and awaiting the RESOLVE_MISMATCH timeout. startedAt is
+      // relative to the real clock (not a fixed constant like `1_000`)
+      // because this state gets loaded into the live app, where the
+      // displayed timer keeps ticking against real Date.now() -- a fixed
+      // startedAt from 1970 would show a nonsensical multi-million-minute
+      // elapsed time on screen.
       const cards = buildCards().map((c) => (c.id === 0 || c.id === 2 ? { ...c, faceUp: true } : c))
       return {
         cards,
         pendingIds: [0, 2],
         moves: 1,
         status: 'playing',
-        startedAt: 1_000,
+        startedAt: Date.now() - 2_000,
         endedAt: null,
       }
     }
@@ -56,7 +61,7 @@ export function buildFixtureState(name: FixtureName): GameState {
         pendingIds: [],
         moves: 7,
         status: 'playing',
-        startedAt: 1_000,
+        startedAt: Date.now() - 30_000,
         endedAt: null,
       }
     }
