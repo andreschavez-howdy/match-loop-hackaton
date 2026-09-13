@@ -5,6 +5,8 @@ game against seeded board states, catches broken behavior against known edge cas
 hands failures to an implementation agent that patches the code — looping until every
 edge case passes, with no human prompt inside the loop.
 
+**Live demo:** https://match-loop-hackaton.vercel.app/
+
 Built for Howdy's Dev Day 2026 Agentic Software Engineering Hackathon. See
 [`docs/SPEC.md`](docs/SPEC.md) for the full product/engineering spec,
 [`SYSTEM.md`](SYSTEM.md) for how the agents and harness fit together, and
